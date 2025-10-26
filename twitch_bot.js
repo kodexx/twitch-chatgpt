@@ -2,6 +2,51 @@
 import tmi from 'tmi.js';
 import OpenAI from 'openai';
 import { promises as fsPromises } from 'fs';
+import fetch from 'node-fetch';
+
+export class TwitchBot {
+    constructor(bot_username, oauth_token, channels, openai_api_key, enable_tts, refresh_token, client_id, client_secret) {
+        this.channels = channels;
+        this.client_id = client_id;
+        this.client_secret = client_secret;
+        this.refresh_token = refresh_token;
+        this.oauth_token = oauth_token; // текущий access_token
+        this.enable_tts = enable_tts;
+        // остальной конструктор без изменений
+    }
+
+    // Метод для обновления access_token
+    async refreshAccessToken() {
+        try {
+            const params = new URLSearchParams();
+            params.append('grant_type', 'refresh_token');
+            params.append('refresh_token', this.refresh_token);
+            params.append('client_id', this.client_id);
+            params.append('client_secret', this.client_secret);
+
+            const res = await fetch('https://id.twitch.tv/oauth2/token', {
+                method: 'POST',
+                body: params
+            });
+
+            const data = await res.json();
+            if (data.access_token) {
+                this.oauth_token = 'oauth:' + data.access_token;
+                console.log('[TwitchBot] Access token refreshed successfully.');
+            } else {
+                console.error('[TwitchBot] Failed to refresh token:', data);
+            }
+        } catch (err) {
+            console.error('[TwitchBot] Error refreshing token:', err);
+        }
+    }
+
+    // Метод для запуска авто-рефреша каждые 4 часа
+    startTokenRefresh() {
+        this.refreshAccessToken(); // сразу обновляем
+        setInterval(() => this.refreshAccessToken(), 4 * 60 * 60 * 1000); // каждые 4 часа
+    }
+}
 
 export class TwitchBot {
     constructor(bot_username, oauth_token, channels, openai_api_key, enable_tts) {
